@@ -102,7 +102,7 @@ def next_target_batch(size):
     for i in range(size):
         img, shape_color, letter_color, shape, letter = get_image()
         img = img.resize((24, 24), Image.ANTIALIAS)
-        img = np.array(img)[:,:,0:3] #+ 30*np.random.rand(24,24,3)
+        img = np.array(img)[:,:,0:3] + 30*np.random.rand(24,24,3)
         # imshow(img)
         img = img.flatten()
 
