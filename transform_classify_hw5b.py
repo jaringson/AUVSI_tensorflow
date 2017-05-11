@@ -6,7 +6,7 @@ from spatial_transformer import transformer
 sess = tf.InteractiveSession()
 
 # placeholders
-x = tf.placeholder(tf.float32, shape=[None, 1024*570*3])
+x = tf.placeholder(tf.float32, shape=[None, 256*143*3])
 let_ = tf.placeholder(tf.float32, shape=[None, 36])
 sha_ = tf.placeholder(tf.float32, shape=[None, 8])
 let_col_ = tf.placeholder(tf.float32, shape=[None, 8])
@@ -31,12 +31,13 @@ def max_pool_2x2(x):
 
 
 with tf.name_scope('transformer_network') as scope:
-    x_image = tf.reshape(x, [-1,1024,570,3])
-    h_pool0 = tf.nn.max_pool(x_image, ksize=[1, 4, 4, 1], strides=[1, 4, 4, 1], padding='SAME')
+    # x_image = tf.reshape(x, [-1,1024,570,3])
+    # h_pool0 = tf.nn.max_pool(x_image, ksize=[1, 4, 4, 1], strides=[1, 4, 4, 1], padding='SAME')
 
     W_conv1 = weight_variable([5, 5, 3, 32])
     b_conv1 = bias_variable([32])
-    h_conv1 = tf.nn.relu(conv2d(h_pool0, W_conv1) + b_conv1)
+    x_image = tf.reshape(x, [-1,256,143,3])
+    h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
     h_pool1 = max_pool_2x2(h_conv1)
 
     W_conv2 = weight_variable([5, 5, 32, 32])
@@ -130,7 +131,7 @@ merged_summary_op = tf.merge_all_summaries()
 summary_writer = tf.train.SummaryWriter("./tf_logs",graph=sess.graph)
 sess.run(tf.initialize_all_variables())
 print("step, shape_color, letter_color, shape, letter")
-for i in range(1500):
+for i in range(15000):
   #batch = mnist.train.next_batch(50)
   batch = background.next_batch(150)
   # print len(batch[0][0])

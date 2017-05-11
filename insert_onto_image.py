@@ -38,7 +38,7 @@ def run():
 	#image = pre + 'e.jpg'
 	# img = Image.open(image)
 	#p_scale = randint(5,10) * 4
-	p_scale = 40
+	p_scale = 120
 	#print p_scale
 	img = img.resize((p_scale,p_scale), Image.ANTIALIAS)
 	p_scale = p_scale / 40.
@@ -70,8 +70,8 @@ def run():
 
 
 	for foreground in foregrounds:
-		p_w = randint(20,width-w)
-		p_h = randint(20,height-h)
+		p_w = randint(20,width-w)//4
+		p_h = randint(20,height-h)//4
 		#p_w = 30
 		#p_h = 20
 		background.paste(foreground, (p_w,p_h), foreground)

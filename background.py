@@ -60,7 +60,7 @@ def next_batch(size):
 		img, p_deg, p_h, p_w, p_scale, shape_color, letter_color, shape, letter = insert_onto_image.run()
 
 		#img = img.convert('L')
-		# img = img.resize((1024, 560), Image.ANTIALIAS)
+		img = img.resize((256, 143), Image.ANTIALIAS)
 		img = array(img).flatten()
 
 		list_of_lists = img.tolist()
