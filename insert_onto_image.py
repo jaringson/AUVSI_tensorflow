@@ -14,8 +14,8 @@ def run():
 
 	img,sc,lc,s,l = sli.get_image()
 
-	all_back = ['s_grass_0.jpg','s_grass_1.jpg','s_grass_2.jpg','s_grass_3.jpg']
-	all_back = ['comp_field_1.jpg']
+	# all_back = ['s_grass_0.jpg','s_grass_1.jpg','s_grass_2.jpg','s_grass_3.jpg']
+	# all_back = ['comp_field_1.jpg']
 	#pre = '/tf_files/spatial-transformer-tensorflow/'
 	pre = './'
 
@@ -45,7 +45,7 @@ def run():
 	#print p_scale
 	#w,h = img.size
 	#print w,h
-	img = img.convert("RGBA")
+	# img = img.convert("RGBA")
 	datas = img.getdata()
 
 	newData = []
@@ -64,10 +64,10 @@ def run():
 
 	p_deg = randint(0,360)
 	#p_deg = 0
-	img = img.rotate(p_deg, expand=True)
-	w,h = img.size
-	foregrounds.append(img)
-
+	img_r = img.rotate(p_deg, expand=True)
+	w,h = img_r.size
+	foregrounds.append(img_r)
+	img = img.convert("RGB")
 
 	for foreground in foregrounds:
 		p_w = randint(20,width-w)//4
@@ -79,6 +79,6 @@ def run():
 
 	# background.show()
 	#print p_w, p_h
-	return background, p_deg, p_h, p_w, p_scale, sc, lc, s, l
+	return background, p_deg, p_h, p_w, p_scale, sc, lc, s, l, img
 
 	# img.save("out.jpg", "JPEG", quality=80, optimize=True, progressive=True)

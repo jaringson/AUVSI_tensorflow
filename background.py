@@ -48,6 +48,7 @@ def next_batch(size):
 	output.append([])
 	output.append([])
 	output.append([])
+	output.append([])
 	for _ in range(size):
 		# label_num = random.randrange(len(LABELS))
 		# label = list(LABELS.keys())[label_num]
@@ -57,9 +58,12 @@ def next_batch(size):
 		#image = './black_square.jpg'
 
 
-		img, p_deg, p_h, p_w, p_scale, shape_color, letter_color, shape, letter = insert_onto_image.run()
+		img, p_deg, p_h, p_w, p_scale, shape_color, letter_color, shape, letter, target = insert_onto_image.run()
 
-		#img = img.convert('L')
+		# target.show()
+		target = target.resize((24,24), Image.ANTIALIAS)
+		target = array(target).flatten()
+
 		img = img.resize((256, 143), Image.ANTIALIAS)
 		img = array(img).flatten()
 
@@ -88,6 +92,7 @@ def next_batch(size):
 			output[3].append(letter_color)
 			output[4].append(shape_color)
 			output[5].append([three, six, p_deg])
+			output[6].append(target)
 			#output[1].append([one,two,three,four,five,six])
 			#output[1].append(LABELS[label]['id'])
 		except:

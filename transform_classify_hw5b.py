@@ -7,6 +7,7 @@ sess = tf.InteractiveSession()
 
 # placeholders
 x = tf.placeholder(tf.float32, shape=[None, 256*143*3])
+x_t = tf.placeholder(tf.float32, shape=[None, 24*24*3])
 let_ = tf.placeholder(tf.float32, shape=[None, 36])
 sha_ = tf.placeholder(tf.float32, shape=[None, 8])
 let_col_ = tf.placeholder(tf.float32, shape=[None, 8])
@@ -34,40 +35,42 @@ with tf.name_scope('transformer_network') as scope:
     # x_image = tf.reshape(x, [-1,1024,570,3])
     # h_pool0 = tf.nn.max_pool(x_image, ksize=[1, 4, 4, 1], strides=[1, 4, 4, 1], padding='SAME')
 
-    W_conv1 = weight_variable([5, 5, 3, 32])
-    b_conv1 = bias_variable([32])
+    W_conv1_l = weight_variable([5, 5, 3, 32])
+    b_conv1_l = bias_variable([32])
     x_image = tf.reshape(x, [-1,256,143,3])
-    h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
-    h_pool1 = max_pool_2x2(h_conv1)
+    h_conv1_l = tf.nn.relu(conv2d(x_image, W_conv1_l) + b_conv1_l)
+    h_pool1_l = max_pool_2x2(h_conv1_l)
 
-    W_conv2 = weight_variable([5, 5, 32, 32])
-    b_conv2 = bias_variable([32])
-    h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
-    h_pool2 = max_pool_2x2(h_conv2)
+    W_conv2_l = weight_variable([5, 5, 32, 32])
+    b_conv2_l = bias_variable([32])
+    h_conv2_l = tf.nn.relu(conv2d(h_pool1_l, W_conv2_l) + b_conv2_l)
+    h_pool2_l = max_pool_2x2(h_conv2_l)
 
-    # W_conv3 = weight_variable([5, 5, 32, 32])
-    # b_conv3 = bias_variable([32])
-    # h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3) + b_conv3)
-    # h_pool3 = max_pool_2x2(h_conv3)
+    W_fc1_l = weight_variable([64*36*32, 1024])
+    b_fc1_l = bias_variable([1024])
+    h_pool2_l_flat = tf.reshape(h_pool2_l, [-1, 64*36*32])
+    h_fc1_l = tf.nn.relu(tf.matmul(h_pool2_l_flat, W_fc1_l) + b_fc1_l)
 
-    W_fc1 = weight_variable([64*36*32, 1024])
-    b_fc1 = bias_variable([1024])
-    h_pool2_flat = tf.reshape(h_pool2, [-1, 64*36*32])
-    # h_pool3_flat = tf.reshape(h_pool3, [-1, 128*72*32])
-    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+    h_fc1_l_drop = tf.nn.dropout(h_fc1_l, keep_prob)
 
-    h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+    initial = np.array([[0.5, 0, 0], [0, 0.5, 0]])
+    initial = initial.astype('float32')
+    initial = initial.flatten()
 
-    W_fc2 = weight_variable([1024, 6])
-    b_fc2 = bias_variable([6])
-    h_fc_loc = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
+    W_fc2_l = tf.Variable(tf.zeros([1024, 6]))
+    b_fc2_l = tf.Variable(initial_value=initial)
+    h_fc2_l = tf.matmul(h_fc1_l_drop, W_fc2_l) + b_fc2_l
 
-x_trans = transformer(x_image, h_fc_loc, (24,24))
+x_trans = transformer(x_image, h_fc2_l, (24,24))
+x_transF, x_transS = tf.split(0,2,x_trans)
+x_t_image = tf.reshape(x_t, [-1,24,24,3])
+x_t_imageF, x_t_imageS = tf.split(0,2,x_t_image)
+x_comb = tf.concat(0,[x_transF,x_t_imageS])
 
 with tf.name_scope('classifyer_network') as scope:
     W_conv1 = weight_variable([5, 5, 3, 32])
     b_conv1 = bias_variable([32])
-    h_conv1 = tf.nn.relu(conv2d(x_trans, W_conv1) + b_conv1)
+    h_conv1 = tf.nn.relu(conv2d(x_comb, W_conv1) + b_conv1)
     h_pool1 = max_pool_2x2(h_conv1)
 
     W_conv2 = weight_variable([5, 5, 32, 64])
@@ -132,16 +135,12 @@ summary_writer = tf.train.SummaryWriter("./tf_logs",graph=sess.graph)
 sess.run(tf.initialize_all_variables())
 print("step, shape_color, letter_color, shape, letter")
 for i in range(15000):
-  #batch = mnist.train.next_batch(50)
   batch = background.next_batch(150)
-  # print len(batch[0][0])
-  # print len(batch[1][0])
-  # print i
+
   if i%10 == 0:
-    l,s,lc,sc = sess.run([let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 1.0})
-    if i%100 == 0:
-        # print("%d, %g"%(i, sc,lc,s,l))
+    l,s,lc,sc = sess.run([let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 1.0})
+    if i%10 == 0:
         print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
-    summary_str, = sess.run([merged_summary_op],feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5})
+    summary_str, = sess.run([merged_summary_op],feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 0.5})
     summary_writer.add_summary(summary_str,i)
-  train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5})
+  train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 0.5})
