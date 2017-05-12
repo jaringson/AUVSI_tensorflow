@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import tensorflow as tf
-import shape_letter_image as sli
+import batch_utils
 import numpy as np
 sess = tf.InteractiveSession()
 
@@ -89,21 +89,18 @@ with tf.name_scope('Accuracy') as scope:
 acc_summary = tf.scalar_summary( 'letter accuracy', let_acc )
 acc_summary = tf.scalar_summary( 'shape accuracy', sha_acc )
 cost_summary = tf.scalar_summary( 'cost', cross_entropies )
-
 merged_summary_op = tf.merge_all_summaries()
 summary_writer = tf.train.SummaryWriter("./tf_logs",graph=sess.graph)
+
 sess.run(tf.initialize_all_variables())
+
 print("step, shape_color, letter_color, shape, letter")
 for i in range(1500):
-  #batch = mnist.train.next_batch(50)
-  batch = sli.next_target_batch(150)
-  # print len(batch[0][0])
-  # print len(batch[1][0])
-  # print batch[0][0][0:30]
+  batch = batch_utils.next_target_batch(150)
+
   if i%10 == 0:
     l,s,lc,sc = sess.run([let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 1.0})
     if i%100 == 0:
-        # print("%d, %g"%(i, sc,lc,s,l))
         print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
     summary_str, = sess.run([merged_summary_op],feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5})
     summary_writer.add_summary(summary_str,i)

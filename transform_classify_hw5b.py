@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import tensorflow as tf
-import background
+import batch_utils
 import numpy as np
 from spatial_transformer import transformer
 sess = tf.InteractiveSession()
@@ -67,7 +67,7 @@ x_t_image = tf.reshape(x_t, [-1,24,24,3])
 x_t_imageF, x_t_imageS = tf.split(0,2,x_t_image)
 x_comb = tf.concat(0,[x_transF,x_t_imageS])
 
-with tf.name_scope('classifyer_network') as scope:
+with tf.variable_scope('classifyer_network') as class_scope:
     W_conv1 = weight_variable([5, 5, 3, 32])
     b_conv1 = bias_variable([32])
     h_conv1 = tf.nn.relu(conv2d(x_comb, W_conv1) + b_conv1)
@@ -109,14 +109,16 @@ with tf.name_scope('classifyer_network') as scope:
         b_fc2 = bias_variable([8])
         sha_col_conv=tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
 
-with tf.name_scope('Cost') as scope:
+with tf.name_scope('Cost'):
     cross_entropies = tf.reduce_mean(-tf.reduce_sum(let_ * tf.log(let_conv), reduction_indices=[1])) + \
                       tf.reduce_mean(-tf.reduce_sum(sha_ * tf.log(sha_conv), reduction_indices=[1])) + \
                       tf.reduce_mean(-tf.reduce_sum(let_col_ * tf.log(let_col_conv), reduction_indices=[1])) + \
                       tf.reduce_mean(-tf.reduce_sum(sha_col_ * tf.log(sha_col_conv), reduction_indices=[1]))
-with tf.name_scope('Optimizer') as scope:
+with tf.name_scope('Optimizer'):
+    class_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=class_scope.name)
+    train_classifyer_step = tf.train.AdamOptimizer(1e-6).minimize(cross_entropies, var_list=class_vars)
     train_step = tf.train.AdamOptimizer(1e-6).minimize(cross_entropies)
-with tf.name_scope('Accuracy') as scope:
+with tf.name_scope('Accuracy'):
     let_correct_prediction = tf.equal(tf.argmax(let_conv,1), tf.argmax(let_,1))
     let_acc = tf.reduce_mean(tf.cast(let_correct_prediction, tf.float32))
     sha_correct_prediction = tf.equal(tf.argmax(sha_conv,1), tf.argmax(sha_,1))
@@ -133,14 +135,18 @@ cost_summary = tf.scalar_summary( 'cost', cross_entropies )
 merged_summary_op = tf.merge_all_summaries()
 summary_writer = tf.train.SummaryWriter("./tf_logs",graph=sess.graph)
 sess.run(tf.initialize_all_variables())
+
 print("step, shape_color, letter_color, shape, letter")
 for i in range(15000):
-  batch = background.next_batch(150)
+    batch = batch_utils.next_batch(150)
 
-  if i%10 == 0:
-    l,s,lc,sc = sess.run([let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 1.0})
     if i%10 == 0:
+        summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 1.0})
         print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
-    summary_str, = sess.run([merged_summary_op],feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 0.5})
-    summary_writer.add_summary(summary_str,i)
-  train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 0.5})
+
+        summary_writer.add_summary(summary_str,i)
+
+    if i < 300:
+        train_classifyer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 0.5})
+    else:
+        train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 0.75})

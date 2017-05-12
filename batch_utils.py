@@ -27,7 +27,7 @@ shapes = ['star','cross','triangle','square','circle','halfcircle','dimond','rec
 
 
 
-def get_image():
+def get_target():
     letter_ind = randint(0, len(alpha) - 1)
     letter = alpha[letter_ind]
 
@@ -75,7 +75,7 @@ def get_image():
 
     foregrounds = []
     foregrounds.append(img)
-    
+
     for foreground in foregrounds:
         target.paste(foreground, (width//2 - w//2, height//2 - h//2), foreground)
 
@@ -97,7 +97,7 @@ def get_image():
 
 def place_background(from_center, rotate):
     grass_dir = './grass/'
-    img,sc,lc,s,l = get_image()
+    target,sc,lc,s,l = get_target()
     num = randint(1,84)
     pre = ''
     if num <= 9:
@@ -110,7 +110,7 @@ def place_background(from_center, rotate):
     b_w, b_h = background.size
 
 
-    datas = img.getdata()
+    datas = target.getdata()
 
     newData = []
     for item in datas:
@@ -119,27 +119,27 @@ def place_background(from_center, rotate):
         else:
             newData.append(item)
 
-    img.putdata(newData)
+    target.putdata(newData)
 
     foregrounds = []
-    
-    img_r = img
+
+    target_r = target
     p_deg = 0
     if rotate:
         p_deg = randint(0,360)
-        img_r = img.rotate(p_deg, expand=True)
-    
+        target_r = target.rotate(p_deg, expand=True)
+
     p_scale = 120
-    img_r = img_r.resize((p_scale,p_scale), Image.ANTIALIAS)
+    target_r = target_r.resize((p_scale,p_scale), Image.ANTIALIAS)
     p_scale = p_scale / 40.
 
-    t_w,t_h = img_r.size
-    foregrounds.append(img_r)
-    img = img.convert("RGB")
+    t_w,t_h = target_r.size
+    foregrounds.append(target_r)
+    target = target.convert("RGB")
 
     for foreground in foregrounds:
-        
-        p_w = randint(int(from_center * (b_w//2 - t_w//2)),int((b_w-t_w) - from_center * ((b_w-t_w) - ((b_w//2) - t_w//2)))) 
+
+        p_w = randint(int(from_center * (b_w//2 - t_w//2)),int((b_w-t_w) - from_center * ((b_w-t_w) - ((b_w//2) - t_w//2))))
         p_h = randint(int(from_center * (b_h//2 - t_h//2)),int((b_h-t_h) - from_center * ((b_h-t_h) - ((b_h//2) - t_h//2))))
         #p_w = 30
         #p_h = 20
@@ -148,14 +148,14 @@ def place_background(from_center, rotate):
 
     #background.show()
     #print p_w, p_h
-    return background, p_deg, p_h, p_w, p_scale, sc, lc, s, l, img
+    return background, p_deg, p_h, p_w, p_scale, sc, lc, s, l, target
 
 def next_batch(size, from_center = 0, rotate = True):
-	if from_center > 1: 
+	if from_center > 1:
 		from_center = 1
 	if from_center < 0:
-		from_cetner = 0 
-	#size = 10
+		from_cetner = 0
+	
 	output = []
 	output.append([])
 	output.append([])
@@ -165,8 +165,6 @@ def next_batch(size, from_center = 0, rotate = True):
 	output.append([])
 	output.append([])
 	for _ in range(size):
-		
-
 
 		img, p_deg, p_h, p_w, p_scale, shape_color, letter_color, shape, letter, target = place_background(from_center, rotate)
 
@@ -195,14 +193,9 @@ def next_batch(size, from_center = 0, rotate = True):
 		output[5].append([three, six, p_deg])
 		output[6].append(target)
 
-
-
-
-
-
 	#print output[1]
 	return output
-    
+
 
 def next_target_batch(size):
 
@@ -213,13 +206,13 @@ def next_target_batch(size):
     output.append([])
     output.append([])
     for i in range(size):
-        img, shape_color, letter_color, shape, letter = get_image()
-        img = img.resize((24, 24), Image.ANTIALIAS)
-        img = np.array(img)[:,:,0:3] #+ 30*np.random.rand(24,24,3)
-        # imshow(img)
-        img = img.flatten()
+        target, shape_color, letter_color, shape, letter = get_target()
+        target = target.resize((24, 24), Image.ANTIALIAS)
+        target = np.array(target)[:,:,0:3] #+ 30*np.random.rand(24,24,3)
+        # imshow(target)
+        target = target.flatten()
 
-        list_of_lists = img.tolist()
+        list_of_lists = target.tolist()
 
         output[0].append(list_of_lists)
         output[1].append(letter)
