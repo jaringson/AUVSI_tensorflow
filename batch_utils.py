@@ -155,7 +155,7 @@ def next_batch(size, from_center = 0, rotate = True):
 		from_center = 1
 	if from_center < 0:
 		from_cetner = 0
-	
+
 	output = []
 	output.append([])
 	output.append([])
@@ -221,3 +221,11 @@ def next_target_batch(size):
         output[4].append(shape_color)
 
     return output
+
+
+if __name__ == '__main__':
+    b = next_batch(5,1,True)
+    for i in range(5):
+        im = np.array(b[0][i])
+        im = im.reshape([143,256,3])
+        imsave('./tf_logs/'+str(i)+'.png',im)

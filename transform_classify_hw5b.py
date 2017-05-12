@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import tensorflow as tf
+from scipy.misc import imsave
 import batch_utils
 import numpy as np
 from spatial_transformer import transformer
@@ -7,7 +8,6 @@ sess = tf.InteractiveSession()
 
 # placeholders
 x = tf.placeholder(tf.float32, shape=[None, 256*143*3])
-x_t = tf.placeholder(tf.float32, shape=[None, 24*24*3])
 let_ = tf.placeholder(tf.float32, shape=[None, 36])
 sha_ = tf.placeholder(tf.float32, shape=[None, 8])
 let_col_ = tf.placeholder(tf.float32, shape=[None, 8])
@@ -53,7 +53,7 @@ with tf.name_scope('transformer_network') as scope:
 
     h_fc1_l_drop = tf.nn.dropout(h_fc1_l, keep_prob)
 
-    initial = np.array([[0.5, 0, 0], [0, 0.5, 0]])
+    initial = np.array([[0.12, 0, 0], [0, 0.17, 0]])
     initial = initial.astype('float32')
     initial = initial.flatten()
 
@@ -62,15 +62,11 @@ with tf.name_scope('transformer_network') as scope:
     h_fc2_l = tf.matmul(h_fc1_l_drop, W_fc2_l) + b_fc2_l
 
 x_trans = transformer(x_image, h_fc2_l, (24,24))
-x_transF, x_transS = tf.split(0,2,x_trans)
-x_t_image = tf.reshape(x_t, [-1,24,24,3])
-x_t_imageF, x_t_imageS = tf.split(0,2,x_t_image)
-x_comb = tf.concat(0,[x_transF,x_t_imageS])
 
 with tf.variable_scope('classifyer_network') as class_scope:
     W_conv1 = weight_variable([5, 5, 3, 32])
     b_conv1 = bias_variable([32])
-    h_conv1 = tf.nn.relu(conv2d(x_comb, W_conv1) + b_conv1)
+    h_conv1 = tf.nn.relu(conv2d(x_trans, W_conv1) + b_conv1)
     h_pool1 = max_pool_2x2(h_conv1)
 
     W_conv2 = weight_variable([5, 5, 32, 64])
@@ -136,17 +132,25 @@ merged_summary_op = tf.merge_all_summaries()
 summary_writer = tf.train.SummaryWriter("./tf_logs",graph=sess.graph)
 sess.run(tf.initialize_all_variables())
 
+class_steps = 300
 print("step, shape_color, letter_color, shape, letter")
 for i in range(15000):
-    batch = batch_utils.next_batch(150)
+    batch = batch_utils.next_batch(150, min(1, 1.0*class_steps/(i+1)), i > class_steps)
 
     if i%10 == 0:
-        summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 1.0})
-        print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
+        summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 1.0})
+
+        if i%30 == 0:
+            xt, = sess.run([x_trans],feed_dict={x: batch[0], keep_prob: 0.5})
+            imsave('./tf_logs/' + str(i) + '_t.png',xt[0])
+            im = np.array(batch[0][0])
+            im = im.reshape([143,256,3])
+            imsave('./tf_logs/' + str(i) + '_b.png',im)
+            print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
 
         summary_writer.add_summary(summary_str,i)
 
-    if i < 300:
-        train_classifyer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 0.5})
+    if i < class_steps:
+        train_classifyer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5})
     else:
-        train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], x_t: batch[6], keep_prob: 0.75})
+        train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75})
