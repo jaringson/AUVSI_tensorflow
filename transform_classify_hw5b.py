@@ -37,7 +37,7 @@ with tf.name_scope('transformer_network') as scope:
 
     W_conv1_l = weight_variable([5, 5, 3, 32])
     b_conv1_l = bias_variable([32])
-    x_image = tf.reshape(x, [-1,256,143,3])
+    x_image = tf.reshape(x, [-1,143,256,3])
     h_conv1_l = tf.nn.relu(conv2d(x_image, W_conv1_l) + b_conv1_l)
     h_pool1_l = max_pool_2x2(h_conv1_l)
 
