@@ -31,7 +31,7 @@ def max_pool_2x2(x):
   return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 
-with tf.name_scope('transformer_network') as scope:
+with tf.variable_scope('transformer_network') as trans_scope:
     # x_image = tf.reshape(x, [-1,1024,570,3])
     # h_pool0 = tf.nn.max_pool(x_image, ksize=[1, 4, 4, 1], strides=[1, 4, 4, 1], padding='SAME')
 
@@ -113,6 +113,8 @@ with tf.name_scope('Cost'):
 with tf.name_scope('Optimizer'):
     class_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=class_scope.name)
     train_classifyer_step = tf.train.AdamOptimizer(1e-6).minimize(cross_entropies, var_list=class_vars)
+    trans_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=trans_scope.name)
+    train_transfomer_step = tf.train.AdamOptimizer(1e-7).minimize(cross_entropies, var_list=trans_vars)
     train_step = tf.train.AdamOptimizer(1e-6).minimize(cross_entropies)
 with tf.name_scope('Accuracy'):
     let_correct_prediction = tf.equal(tf.argmax(let_conv,1), tf.argmax(let_,1))
@@ -132,25 +134,33 @@ merged_summary_op = tf.merge_all_summaries()
 summary_writer = tf.train.SummaryWriter("./tf_logs",graph=sess.graph)
 sess.run(tf.initialize_all_variables())
 
-class_steps = 300
+class_steps = 150
+max_steps = 15000
+m = 1/(class_steps - max_steps)
+b = max_step/(max_steps - class_steps)
 print("step, shape_color, letter_color, shape, letter")
-for i in range(15000):
-    batch = batch_utils.next_batch(150, min(1, 1.0*class_steps/(i+1)), i > class_steps)
+for i in range(max_steps):
+    # batch = batch_utils.next_batch(150, min(1, i*slope + class_steps), i > class_steps)
+    batch = batch_utils.next_batch(150, min(1, i*slope + b), i > class_steps)
 
     if i%10 == 0:
-        summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 1.0})
+        summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5})
 
         if i%30 == 0:
-            xt, = sess.run([x_trans],feed_dict={x: batch[0], keep_prob: 0.5})
-            imsave('./tf_logs/' + str(i) + '_t.png',xt[0])
-            im = np.array(batch[0][0])
-            im = im.reshape([143,256,3])
-            imsave('./tf_logs/' + str(i) + '_b.png',im)
             print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
-
         summary_writer.add_summary(summary_str,i)
+
+    if i%30 == 0 or (i > class_steps and i < class_steps + 30):
+        xt, = sess.run([x_trans],feed_dict={x: batch[0], keep_prob: 1.0})
+        imsave('./tf_logs/' + str(i) + '_t.png',xt[0])
+        im = np.array(batch[0][0])
+        im = im.reshape([143,256,3])
+        imsave('./tf_logs/' + str(i) + '_b.png',im)
 
     if i < class_steps:
         train_classifyer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5})
     else:
-        train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75})
+        train_transfomer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75})
+
+    # if i > 10000:
+    #     train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75})
