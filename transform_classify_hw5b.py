@@ -137,11 +137,11 @@ sess.run(tf.initialize_all_variables())
 class_steps = 150
 max_steps = 15000
 m = 1/(class_steps - max_steps)
-b = max_step/(max_steps - class_steps)
+b = max_steps/(max_steps - class_steps)
 print("step, shape_color, letter_color, shape, letter")
 for i in range(max_steps):
     # batch = batch_utils.next_batch(150, min(1, i*slope + class_steps), i > class_steps)
-    batch = batch_utils.next_batch(150, min(1, i*slope + b), i > class_steps)
+    batch = batch_utils.next_batch(150, min(1, i*m + b), i > class_steps)
 
     if i%10 == 0:
         summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5})
