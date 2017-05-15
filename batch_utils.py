@@ -154,7 +154,7 @@ def next_batch(size, from_center = 0, rotate = True):
 	if from_center > 1:
 		from_center = 1
 	if from_center < 0:
-		from_cetner = 0
+		from_center = 0
 
 	output = []
 	output.append([])
