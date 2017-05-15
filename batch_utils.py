@@ -12,6 +12,8 @@ alpha  = ['a','b','c','d','e','f','g','h','i','j',
 pre = 'shapes/'
 post = '.png'
 
+brown = (163, 76, 0, 255)
+grey = (160, 160, 160, 255)
 red = (255, 0, 0, 255)
 green = (0, 204, 0, 255)
 blue = (0, 0, 255, 255)
@@ -21,10 +23,8 @@ white = (255, 255, 255, 255)
 black = (0, 0, 0, 255)
 purple = (204, 0, 204, 255)
 
-colors = [red, green, blue, yellow, orange, white, black, purple]
-shapes = ['star','cross','triangle','square','circle','halfcircle','dimond','rectangle']
-
-
+colors = [brown, grey, red, green, blue, yellow, orange, white, black, purple]
+shapes = ['star','cross','triangle','square','circle','semicircle','rectangle','quarter_circle', 'trapeziod', 'pentagon','hexagon', 'heptagon', 'octagon']
 
 
 def get_target():
@@ -33,7 +33,7 @@ def get_target():
 
     image = pre + letter + post
 
-    shape_color_ind = randint(0, len(colors) - 1)
+    shape_color_ind =  randint(0, len(colors) - 1)
     shape_color = colors[shape_color_ind]
     letter_color_ind = shape_color_ind
     letter_color = shape_color
@@ -154,7 +154,7 @@ def next_batch(size, from_center = 0, rotate = True):
 	if from_center > 1:
 		from_center = 1
 	if from_center < 0:
-		from_cetner = 0
+		from_center = 0
 
 	output = []
 	output.append([])
