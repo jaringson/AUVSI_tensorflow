@@ -42,12 +42,12 @@ with tf.variable_scope('transformer_network') as trans_scope:
     h_pool1_l = max_pool_2x2(h_conv1_l)
 
     W_conv2_l = weight_variable([5, 5, 32, 32])
-    b_conv2_l = bias_variable([32])
+    b_conv2_l = tf.Variable(tf.constant(0.0, shape=[32]))#bias_variable([32])
     h_conv2_l = tf.nn.relu(conv2d(h_pool1_l, W_conv2_l) + b_conv2_l)
     h_pool2_l = max_pool_2x2(h_conv2_l)
 
     W_fc1_l = weight_variable([64*36*32, 1024])
-    b_fc1_l = bias_variable([1024])
+    b_fc1_l = tf.Variable(tf.constant(0.0, shape=[1024]))# bias_variable([1024])
     h_pool2_l_flat = tf.reshape(h_pool2_l, [-1, 64*36*32])
     h_fc1_l = tf.nn.relu(tf.matmul(h_pool2_l_flat, W_fc1_l) + b_fc1_l)
 
@@ -57,7 +57,11 @@ with tf.variable_scope('transformer_network') as trans_scope:
     initial = initial.astype('float32')
     initial = initial.flatten()
 
-    W_fc2_l = tf.Variable(tf.zeros([1024, 6]))
+    initial_W = np.array([5e-8*np.random.randn(1024),5e-8*np.random.randn(1024),5e-7*np.random.randn(1024),5e-8*np.random.randn(1024),5e-8*np.random.randn(1024),1e-6*np.random.randn(1024)])
+    initial_W = initial_W.transpose()
+    initial_W = initial_W.astype('float32')
+
+    W_fc2_l = tf.Variable(initial_value=initial_W)# tf.zeros([1024, 6]))
     b_fc2_l = tf.Variable(initial_value=initial)
     h_fc2_l = tf.matmul(h_fc1_l_drop, W_fc2_l) + b_fc2_l
 
@@ -136,8 +140,8 @@ sess.run(tf.initialize_all_variables())
 
 class_steps = 150
 max_steps = 15000
-m = 1/(class_steps - max_steps)
-b = max_steps/(max_steps - class_steps)
+m = 1./(class_steps - max_steps)
+b = 1.0*max_steps/(max_steps - class_steps)
 print("step, shape_color, letter_color, shape, letter")
 for i in range(max_steps):
     # batch = batch_utils.next_batch(150, min(1, i*slope + class_steps), i > class_steps)
@@ -146,16 +150,17 @@ for i in range(max_steps):
     if i%10 == 0:
         summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5})
 
-        if i%30 == 0:
+        if i%10 == 0:
             print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
         summary_writer.add_summary(summary_str,i)
 
-    if i%30 == 0 or (i > class_steps and i < class_steps + 30):
+    if i%3 == 0 or (i > class_steps and i < class_steps + 30):
         xt, = sess.run([x_trans],feed_dict={x: batch[0], keep_prob: 1.0})
-        imsave('./tf_logs/' + str(i) + '_t.png',xt[0])
-        im = np.array(batch[0][0])
-        im = im.reshape([143,256,3])
-        imsave('./tf_logs/' + str(i) + '_b.png',im)
+        for j in range(5):
+            imsave('./tf_logs/' + str(i) + '_t'+str(j)+'.png',xt[j])
+            im = np.array(batch[0][j])
+            im = im.reshape([143,256,3])
+            imsave('./tf_logs/' + str(i) + '_b'+str(j)+'.png',im)
 
     if i < class_steps:
         train_classifyer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5})
