@@ -109,7 +109,12 @@ def place_background(from_center, rotate):
 
     b_w, b_h = background.size
 
+    delta_x = randint(0,b_w-256)
+    delta_y = randint(0,b_h-143)
+    background = background.crop((delta_x, delta_y, delta_x + 256, delta_y + 143))
 
+    b_w, b_h = background.size
+    
     datas = target.getdata()
 
     newData = []
@@ -129,7 +134,7 @@ def place_background(from_center, rotate):
         p_deg = randint(0,360)
         target_r = target.rotate(p_deg, expand=True)
 
-    p_scale = 120
+    p_scale = 24
     target_r = target_r.resize((p_scale,p_scale), Image.ANTIALIAS)
     p_scale = p_scale / 40.
 
@@ -169,14 +174,9 @@ def next_batch(size, from_center = 0, rotate = True):
 		img, p_deg, p_h, p_w, p_scale, shape_color, letter_color, shape, letter, target = place_background(from_center, rotate)
 
 		# target.show()
-		target = target.resize((24,24), Image.ANTIALIAS)
-		target = np.array(target).flatten()
-
-		img = img.resize((256, 143), Image.ANTIALIAS)
+                
 		img = np.array(img).flatten()
-
 		list_of_lists = img.tolist()
-
 
 		one = math.cos(math.radians(p_deg)) + 1 + p_scale
 		two = -math.sin(math.radians(p_deg))
