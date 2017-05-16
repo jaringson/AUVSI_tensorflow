@@ -24,7 +24,7 @@ black = (0, 0, 0, 255)
 purple = (204, 0, 204, 255)
 
 colors = [brown, grey, red, green, blue, yellow, orange, white, black, purple]
-shapes = ['star','cross','triangle','square','circle','semicircle','rectangle','quarter_circle', 'trapeziod', 'pentagon','hexagon', 'heptagon', 'octagon']
+shapes = ['star','cross','triangle','square','circle','halfcircle','rectangle','quarter_circle', 'trapezoid', 'pentagon','hexagon', 'heptagon', 'octagon']
 
 
 def get_target():
@@ -80,16 +80,16 @@ def get_target():
         target.paste(foreground, (width//2 - w//2, height//2 - h//2), foreground)
 
     # target.show()
-    shape_c_one_hot = np.zeros(8)
+    shape_c_one_hot = np.zeros(len(colors))
     shape_c_one_hot.put(shape_color_ind,1)
 
-    letter_c_one_hot = np.zeros(8)
+    letter_c_one_hot = np.zeros(len(colors))
     letter_c_one_hot.put(letter_color_ind,1)
 
-    shape_one_hot = np.zeros(8)
+    shape_one_hot = np.zeros(len(shapes))
     shape_one_hot.put(shape_ind,1)
 
-    letter_one_hot = np.zeros(36)
+    letter_one_hot = np.zeros(len(alpha))
     letter_one_hot.put(letter_ind,1)
 
     return target, shape_c_one_hot, letter_c_one_hot, shape_one_hot, letter_one_hot
