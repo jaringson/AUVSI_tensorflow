@@ -9,9 +9,9 @@ sess = tf.InteractiveSession()
 # placeholders
 x = tf.placeholder(tf.float32, shape=[None, 256*143*3])
 let_ = tf.placeholder(tf.float32, shape=[None, 36])
-sha_ = tf.placeholder(tf.float32, shape=[None, 8])
-let_col_ = tf.placeholder(tf.float32, shape=[None, 8])
-sha_col_ = tf.placeholder(tf.float32, shape=[None, 8])
+sha_ = tf.placeholder(tf.float32, shape=[None, 13])
+let_col_ = tf.placeholder(tf.float32, shape=[None, 10])
+sha_col_ = tf.placeholder(tf.float32, shape=[None, 10])
 keep_prob = tf.placeholder(tf.float32)
 trans_randomness = tf.placeholder(tf.float32, shape=[None, 6])
 
@@ -89,21 +89,21 @@ with tf.variable_scope('classifyer_network') as class_scope:
         let_conv=tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
 
     with tf.variable_scope("shape"):
-        W_fc2 = tf.get_variable( "W", [1024, 8], tf.float32,
+        W_fc2 = tf.get_variable( "W", [1024, 13], tf.float32,
                                   tf.random_normal_initializer( stddev=np.sqrt(2 / np.prod(h_fc1_drop.get_shape().as_list()[1:])) ) ) # weight_variable([1024, 36])
-        b_fc2 = bias_variable([8])
+        b_fc2 = bias_variable([13])
         sha_conv=tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
 
     with tf.variable_scope("letter_color"):
-        W_fc2 = tf.get_variable( "W", [1024, 8], tf.float32,
+        W_fc2 = tf.get_variable( "W", [1024, 10], tf.float32,
                                   tf.random_normal_initializer( stddev=np.sqrt(2 / np.prod(h_fc1_drop.get_shape().as_list()[1:])) ) ) # weight_variable([1024, 36])
-        b_fc2 = bias_variable([8])
+        b_fc2 = bias_variable([10])
         let_col_conv=tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
 
     with tf.variable_scope("shape_color"):
-        W_fc2 = tf.get_variable( "W", [1024, 8], tf.float32,
+        W_fc2 = tf.get_variable( "W", [1024, 10], tf.float32,
                                   tf.random_normal_initializer( stddev=np.sqrt(2 / np.prod(h_fc1_drop.get_shape().as_list()[1:])) ) ) # weight_variable([1024, 36])
-        b_fc2 = bias_variable([8])
+        b_fc2 = bias_variable([10])
         sha_col_conv=tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
 
 with tf.name_scope('Cost'):
@@ -115,7 +115,7 @@ with tf.name_scope('Optimizer'):
     class_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=class_scope.name)
     train_classifyer_step = tf.train.AdamOptimizer(1e-6).minimize(cross_entropies, var_list=class_vars)
     trans_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=trans_scope.name)
-    train_transfomer_step = tf.train.AdamOptimizer(1e-6).minimize(cross_entropies, var_list=trans_vars)
+    train_transfomer_step = tf.train.AdamOptimizer(1e-7).minimize(cross_entropies, var_list=trans_vars)
     train_step = tf.train.AdamOptimizer(1e-8).minimize(cross_entropies)
 with tf.name_scope('Accuracy'):
     let_correct_prediction = tf.equal(tf.argmax(let_conv,1), tf.argmax(let_,1))
@@ -136,13 +136,13 @@ summary_writer = tf.train.SummaryWriter("./tf_logs",graph=sess.graph)
 sess.run(tf.initialize_all_variables())
 
 bs = 150
-class_steps = 450
+class_steps = 100
 max_steps = 15000
 m = 2.0/(class_steps - max_steps)
 b = 1 - m*class_steps
 print("step, shape_color, letter_color, shape, letter")
 for i in range(max_steps):
-    batch = batch_utils.next_batch(bs, i*m + b, i > class_steps)
+    batch = batch_utils.next_batch(bs, i*m + b, i > class_steps + 30)
 
     if i%10 == 0:
         summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 1.0, trans_randomness: np.zeros([bs,6])})
@@ -152,7 +152,7 @@ for i in range(max_steps):
         summary_writer.add_summary(summary_str,i)
 
     if i%30 == 0 or (i > class_steps and i < class_steps + 30):
-        randness = np.array([np.zeros(bs),np.zeros(bs),0.04*np.random.randn(bs),np.zeros(bs),np.zeros(bs),0.04*np.random.randn(bs)]).transpose()
+        randness = np.array([0.02*np.random.randn(bs),0.02*np.random.randn(bs),0.04*np.random.randn(bs),0.02*np.random.randn(bs),0.02*np.random.randn(bs),0.04*np.random.randn(bs)]).transpose()
         xt, = sess.run([x_trans],feed_dict={x: batch[0], keep_prob: 1.0, trans_randomness: randness})
         for j in range(1):
             imsave('./tf_logs/' + str(i) + '_t'+str(j)+'.png',xt[j])
@@ -161,7 +161,7 @@ for i in range(max_steps):
             imsave('./tf_logs/' + str(i) + '_b'+str(j)+'.png',im)
 
     if i < class_steps:
-        randness = np.array([np.zeros(bs),np.zeros(bs),0.04*np.random.randn(bs),np.zeros(bs),np.zeros(bs),0.04*np.random.randn(bs)]).transpose()
+        randness = np.array([0.01*np.random.randn(bs),0.01*np.random.randn(bs),0.04*np.random.randn(bs),0.01*np.random.randn(bs),0.01*np.random.randn(bs),0.04*np.random.randn(bs)]).transpose()
         train_classifyer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5, trans_randomness: randness})
     elif i < 2*class_steps:
         train_transfomer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75, trans_randomness: np.zeros([bs,6])})
