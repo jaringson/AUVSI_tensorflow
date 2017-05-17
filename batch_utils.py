@@ -95,7 +95,7 @@ def get_target():
     return target, shape_c_one_hot, letter_c_one_hot, shape_one_hot, letter_one_hot
 
 
-def place_background(from_center, rotate):
+def place_background(from_center, rotate, scale_rand):
     grass_dir = './grass/'
     target,sc,lc,s,l = get_target()
     num = randint(1,84)
@@ -114,7 +114,7 @@ def place_background(from_center, rotate):
     background = background.crop((delta_x, delta_y, delta_x + 256, delta_y + 143))
 
     b_w, b_h = background.size
-    
+
     datas = target.getdata()
 
     newData = []
@@ -134,7 +134,10 @@ def place_background(from_center, rotate):
         p_deg = randint(0,360)
         target_r = target.rotate(p_deg, expand=True)
 
-    p_scale = 24
+    if scale_rand:
+        p_scale = randint(18,24)
+    else:
+        p_scale = 18
     target_r = target_r.resize((p_scale,p_scale), Image.ANTIALIAS)
     p_scale = p_scale / 40.
 
@@ -155,7 +158,7 @@ def place_background(from_center, rotate):
     #print p_w, p_h
     return background, p_deg, p_h, p_w, p_scale, sc, lc, s, l, target
 
-def next_batch(size, from_center = 0, rotate = True):
+def next_batch(size, from_center = 0, rotate = True, scale_rand = True):
 	if from_center > 1:
 		from_center = 1
 	if from_center < 0:
@@ -171,10 +174,10 @@ def next_batch(size, from_center = 0, rotate = True):
 	output.append([])
 	for _ in range(size):
 
-		img, p_deg, p_h, p_w, p_scale, shape_color, letter_color, shape, letter, target = place_background(from_center, rotate)
+		img, p_deg, p_h, p_w, p_scale, shape_color, letter_color, shape, letter, target = place_background(from_center, rotate, scale_rand)
 
 		# target.show()
-                
+
 		img = np.array(img).flatten()
 		list_of_lists = img.tolist()
 
