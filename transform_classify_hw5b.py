@@ -54,7 +54,8 @@ with tf.variable_scope('transformer_network') as trans_scope:
 
     h_fc1_l_drop = tf.nn.dropout(h_fc1_l, keep_prob)
 
-    initial = np.array([[0.12, 0, 0], [0, 0.17, 0]])
+    # initial = np.array([[0.1, 0, 0], [0, 0.14, 0]])
+    initial = np.array([[0.5, 0, 0], [0, 0.5, 0]])
     initial = initial.astype('float32')
     initial = initial.flatten()
 
@@ -113,7 +114,7 @@ with tf.name_scope('Cost'):
                       tf.reduce_mean(-tf.reduce_sum(sha_col_ * tf.log(sha_col_conv), reduction_indices=[1]))
 with tf.name_scope('Optimizer'):
     class_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=class_scope.name)
-    train_classifyer_step = tf.train.AdamOptimizer(1e-6).minimize(cross_entropies, var_list=class_vars)
+    train_classifyer_step = tf.train.AdamOptimizer(5e-5).minimize(cross_entropies, var_list=class_vars)
     trans_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=trans_scope.name)
     train_transfomer_step = tf.train.AdamOptimizer(1e-7).minimize(cross_entropies, var_list=trans_vars)
     train_step = tf.train.AdamOptimizer(1e-8).minimize(cross_entropies)
@@ -138,21 +139,23 @@ sess.run(tf.initialize_all_variables())
 bs = 150
 class_steps = 100
 max_steps = 15000
-m = 2.0/(class_steps - max_steps)
-b = 1 - m*class_steps
+m = 4.0/(class_steps - max_steps)
+b = 0.75 - m*class_steps
 print("step, shape_color, letter_color, shape, letter")
 for i in range(max_steps):
-    batch = batch_utils.next_batch(bs, i*m + b, i > class_steps + 30)
+    if i < class_steps:
+        batch = batch_utils.next_batch(bs, 1, False, False)
+        randness = np.array([-.4 + 0.015*np.random.randn(bs),0.015*np.random.randn(bs),0.03*np.random.randn(bs),0.015*np.random.randn(bs),-.36 + 0.015*np.random.randn(bs),0.03*np.random.randn(bs)]).transpose()
+    else:
+        batch = batch_utils.next_batch(bs, i*m + b, True, True)
+        randness = np.zeros([bs,6])
 
     if i%10 == 0:
-        summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 1.0, trans_randomness: np.zeros([bs,6])})
-
-        if i%10 == 0:
-            print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
+        summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={x:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 1.0, trans_randomness: randness})
+        print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
         summary_writer.add_summary(summary_str,i)
 
-    if i%30 == 0 or (i > class_steps and i < class_steps + 30):
-        randness = np.array([0.02*np.random.randn(bs),0.02*np.random.randn(bs),0.04*np.random.randn(bs),0.02*np.random.randn(bs),0.02*np.random.randn(bs),0.04*np.random.randn(bs)]).transpose()
+    if i%10 == 0 or (i > class_steps and i < class_steps + 30):
         xt, = sess.run([x_trans],feed_dict={x: batch[0], keep_prob: 1.0, trans_randomness: randness})
         for j in range(1):
             imsave('./tf_logs/' + str(i) + '_t'+str(j)+'.png',xt[j])
@@ -161,9 +164,8 @@ for i in range(max_steps):
             imsave('./tf_logs/' + str(i) + '_b'+str(j)+'.png',im)
 
     if i < class_steps:
-        randness = np.array([0.01*np.random.randn(bs),0.01*np.random.randn(bs),0.04*np.random.randn(bs),0.01*np.random.randn(bs),0.01*np.random.randn(bs),0.04*np.random.randn(bs)]).transpose()
         train_classifyer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5, trans_randomness: randness})
     elif i < 2*class_steps:
-        train_transfomer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75, trans_randomness: np.zeros([bs,6])})
+        train_transfomer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75, trans_randomness: randness})
     else:
-        train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75, trans_randomness: np.zeros([bs,6])})
+        train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75, trans_randomness: randness})
