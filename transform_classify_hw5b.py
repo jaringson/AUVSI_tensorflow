@@ -14,6 +14,7 @@ let_col_ = tf.placeholder(tf.float32, shape=[None, 10])
 sha_col_ = tf.placeholder(tf.float32, shape=[None, 10])
 keep_prob = tf.placeholder(tf.float32)
 trans_randomness = tf.placeholder(tf.float32, shape=[None, 6])
+lr = tf.placeholder_with_default( 0.001, [], name="learn_rate")
 
 # initialization functions
 def weight_variable(shape):
@@ -114,10 +115,10 @@ with tf.name_scope('Cost'):
                       tf.reduce_mean(-tf.reduce_sum(sha_col_ * tf.log(sha_col_conv), reduction_indices=[1]))
 with tf.name_scope('Optimizer'):
     class_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=class_scope.name)
-    train_classifyer_step = tf.train.AdamOptimizer(5e-5).minimize(cross_entropies, var_list=class_vars)
+    train_classifyer_step = tf.train.AdamOptimizer(learning_rate=lr).minimize(cross_entropies, var_list=class_vars)
     trans_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=trans_scope.name)
-    train_transfomer_step = tf.train.AdamOptimizer(1e-7).minimize(cross_entropies, var_list=trans_vars)
-    train_step = tf.train.AdamOptimizer(1e-8).minimize(cross_entropies)
+    train_transfomer_step = tf.train.AdamOptimizer(learning_rate=lr).minimize(cross_entropies, var_list=trans_vars)
+    train_step = tf.train.AdamOptimizer(learning_rate=lr).minimize(cross_entropies)
 with tf.name_scope('Accuracy'):
     let_correct_prediction = tf.equal(tf.argmax(let_conv,1), tf.argmax(let_,1))
     let_acc = tf.reduce_mean(tf.cast(let_correct_prediction, tf.float32))
@@ -137,10 +138,22 @@ summary_writer = tf.train.SummaryWriter("./tf_logs",graph=sess.graph)
 sess.run(tf.initialize_all_variables())
 
 bs = 150
-class_steps = 100
+class_steps = 50
 max_steps = 15000
 m = 4.0/(class_steps - max_steps)
 b = 0.75 - m*class_steps
+
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
+slide = Slider(plt.axes([0.25, 0.1, 0.65, 0.03]), "learning rate", -8, -1, valinit=-5)
+learn_rate = 5e-5
+def update(val):
+    learn_rate = 10**slide.val
+    print 'learn rate',learn_rate
+slide.on_changed(update)
+plt.show(block=False)
+plt.pause(0.001)
+
 print("step, shape_color, letter_color, shape, letter")
 for i in range(max_steps):
     if i < class_steps:
@@ -155,7 +168,7 @@ for i in range(max_steps):
         print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
         summary_writer.add_summary(summary_str,i)
 
-    if i%10 == 0 or (i > class_steps and i < class_steps + 30):
+    if i%100 == 0 or (i > class_steps and i < class_steps + 30):
         xt, = sess.run([x_trans],feed_dict={x: batch[0], keep_prob: 1.0, trans_randomness: randness})
         for j in range(1):
             imsave('./tf_logs/' + str(i) + '_t'+str(j)+'.png',xt[j])
@@ -163,9 +176,17 @@ for i in range(max_steps):
             im = im.reshape([143,256,3])
             imsave('./tf_logs/' + str(i) + '_b'+str(j)+'.png',im)
 
+    if i == class_steps:
+        slide.set_val(-7)
+        learn_rate = 1e-7
+    elif i == 2*class_steps:
+        slide.set_val(-8)
+        learn_rate = 1e-8
+
+    plt.pause(0.001)
     if i < class_steps:
-        train_classifyer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5, trans_randomness: randness})
+        train_classifyer_step.run(feed_dict={lr: learn_rate, x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5, trans_randomness: randness})
     elif i < 2*class_steps:
-        train_transfomer_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75, trans_randomness: randness})
+        train_transfomer_step.run(feed_dict={lr: learn_rate, x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75, trans_randomness: randness})
     else:
-        train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75, trans_randomness: randness})
+        train_step.run(feed_dict={lr: learn_rate, x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75, trans_randomness: randness})
