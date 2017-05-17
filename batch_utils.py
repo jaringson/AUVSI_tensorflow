@@ -109,9 +109,9 @@ def place_background(from_center, rotate, scale_rand):
 
     b_w, b_h = background.size
 
-    delta_x = randint(0,b_w-256)
-    delta_y = randint(0,b_h-143)
-    background = background.crop((delta_x, delta_y, delta_x + 256, delta_y + 143))
+    delta_x = randint(0,b_w-224)
+    delta_y = randint(0,b_h-224)
+    background = background.crop((delta_x, delta_y, delta_x + 224, delta_y + 224))
 
     b_w, b_h = background.size
 

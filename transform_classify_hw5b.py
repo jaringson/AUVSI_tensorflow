@@ -3,6 +3,7 @@ import tensorflow as tf
 from scipy.misc import imsave
 import batch_utils
 import numpy as np
+import vgg16
 from spatial_transformer import transformer
 sess = tf.InteractiveSession()
 
@@ -17,7 +18,7 @@ trans_randomness = tf.placeholder(tf.float32, shape=[None, 6])
 
 # initialization functions
 def weight_variable(shape):
-  initial = tf.truncated_normal(shape, stddev=0.1)
+  initial = tf.truncated_normal(shape, stddev=0.2)
   return tf.Variable(initial)
 
 def bias_variable(shape):
@@ -31,37 +32,31 @@ def conv2d(x, W):
 def max_pool_2x2(x):
   return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
+x_image = tf.reshape(x, [-1,224,224,3])
+vgg = vgg16.vgg16( x_image, 'vgg16_weights.npz', sess )
+
+layers = [ 'conv5_1','fc1' ]
+ops = [ getattr( vgg, x ) for x in layers ]
 
 with tf.variable_scope('transformer_network') as trans_scope:
-    # x_image = tf.reshape(x, [-1,1024,570,3])
-    # h_pool0 = tf.nn.max_pool(x_image, ksize=[1, 4, 4, 1], strides=[1, 4, 4, 1], padding='SAME')
 
-    W_conv1_l = weight_variable([5, 5, 3, 32])
-    b_conv1_l = bias_variable([32])
-    x_image = tf.reshape(x, [-1,143,256,3])
-    h_conv1_l = tf.nn.relu(conv2d(x_image, W_conv1_l) + b_conv1_l)
-    h_pool1_l = max_pool_2x2(h_conv1_l)
+    W_conv1_l = weight_variable([3, 3, 512, 64])
+    b_conv1_l = bias_variable([64])
+    h_conv1_l = tf.nn.relu( tf.nn.conv2d( opp[0], W_conv1_1, strides=[1, 1, 1, 1], padding='VALID' ) + b_conv1_l )
 
-    W_conv2_l = weight_variable([5, 5, 32, 32])
-    b_conv2_l = bias_variable([32])
-    h_conv2_l = tf.nn.relu(conv2d(h_pool1_l, W_conv2_l) + b_conv2_l)
-    h_pool2_l = max_pool_2x2(h_conv2_l)
-
-    W_fc1_l = weight_variable([64*36*32, 1024])
-    b_fc1_l = bias_variable([1024])
-    h_pool2_l_flat = tf.reshape(h_pool2_l, [-1, 64*36*32])
+    W_fc1_l = weight_variable([9216, 64])
+    b_fc1_l = bias_variable([64])
+    h_conv2_l_flat = tf.reshape(h_conv1_l, [-1, 9216])
     h_fc1_l = tf.nn.relu(tf.matmul(h_pool2_l_flat, W_fc1_l) + b_fc1_l)
-
-    h_fc1_l_drop = tf.nn.dropout(h_fc1_l, keep_prob)
 
     # initial = np.array([[0.1, 0, 0], [0, 0.14, 0]])
     initial = np.array([[0.5, 0, 0], [0, 0.5, 0]])
     initial = initial.astype('float32')
     initial = initial.flatten()
 
-    W_fc2_l = tf.Variable(tf.truncated_normal([1024,6], stddev=1e-8))# tf.zeros([1024, 6]))
+    W_fc2_l = tf.Variable(tf.truncated_normal([64,6], stddev=1e-8))# tf.zeros([1024, 6]))
     b_fc2_l = tf.Variable(initial_value=initial)
-    h_fc2_l = tf.matmul(h_fc1_l_drop, W_fc2_l) + b_fc2_l + trans_randomness
+    h_fc2_l = tf.matmul(h_fc1_l, W_fc2_l) + b_fc2_l + trans_randomness
 
 x_trans = transformer(x_image, h_fc2_l, (24,24))
 
@@ -135,6 +130,7 @@ cost_summary = tf.scalar_summary( 'cost', cross_entropies )
 merged_summary_op = tf.merge_all_summaries()
 summary_writer = tf.train.SummaryWriter("./tf_logs",graph=sess.graph)
 sess.run(tf.initialize_all_variables())
+vgg.load_weights( 'vgg16_weights.npz', sess )
 
 bs = 150
 class_steps = 100
