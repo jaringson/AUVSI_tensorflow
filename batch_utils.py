@@ -210,8 +210,19 @@ def next_target_batch(size):
     output.append([])
     for i in range(size):
         target, shape_color, letter_color, shape, letter = get_target()
-        target = target.resize((24, 24), Image.ANTIALIAS)
-        target = np.array(target)[:,:,0:3] #+ 30*np.random.rand(24,24,3)
+        target = target.resize((24, 24))
+
+        datas = target.getdata()
+
+        newData = []
+        for item in datas:
+            if item[3] <= 3:
+                newData.append((randint(0,100), randint(50,150), randint(0,50), 0))
+            else:
+                newData.append(item)
+        target.putdata(newData)
+
+        target = np.array(target)[:,:,0:3] + 30*np.random.rand(24,24,3)
         # imshow(target)
         target = target.flatten()
 

@@ -53,8 +53,8 @@ with tf.name_scope('Wx_B') as scope:
     y_conv=tf.matmul(h_fc1_drop, W_fc2) + b_fc2
 
 with tf.name_scope('Cost') as scope:
-  x_act, y_act, ang = tf.split(1, 3, y_)
-  x_est, y_est, ang_est = tf.split(1, 3, y_conv)
+  x_act, y_act, ang = tf.split(axis=1, num_or_size_splits=3, value=y_)
+  x_est, y_est, ang_est = tf.split(axis=1, num_or_size_splits=3, value=y_conv)
   loss = tf.reduce_mean((x_act - x_est)**2 + (y_act - y_est)**2 + 0.44*(ang - ang_est)**2)
   #loss = tf.reduce_mean(tf.reduce_sum(tf.subtract(y_ , y_conv)**2, reduction_indices=[1]))
 with tf.name_scope('Optimizer') as scope:
@@ -63,12 +63,12 @@ with tf.name_scope('Accuracy') as scope:
   pix_accuracy = tf.reduce_mean(tf.sqrt((x_act - x_est)**2 + (y_act - y_est )**2))
   ang_accuracy = tf.reduce_mean(tf.abs(ang - ang_est))
 
-acc_summary = tf.scalar_summary( 'pix_accuracy', pix_accuracy )
-cost_summary = tf.scalar_summary( 'cost', loss )
+acc_summary = tf.summary.scalar( 'pix_accuracy', pix_accuracy )
+cost_summary = tf.summary.scalar( 'cost', loss )
 
-merged_summary_op = tf.merge_all_summaries()
-summary_writer = tf.train.SummaryWriter("./tf_logs",graph=sess.graph)
-sess.run(tf.initialize_all_variables())
+merged_summary_op = tf.summary.merge_all()
+summary_writer = tf.summary.FileWriter("./tf_logs",graph=sess.graph)
+sess.run(tf.global_variables_initializer())
 for i in range(2000):
   #batch = mnist.train.next_batch(50)
   batch = background.next_batch(150)

@@ -5,7 +5,7 @@ import batch_utils
 import numpy as np
 import vgg16
 from spatial_transformer import transformer
-sess = tf.Session()
+sess = tf.InteractiveSession()
 
 # placeholders
 xs = tf.placeholder(tf.float32, shape=[None, 224*224*3], name="images")
@@ -39,7 +39,7 @@ layers = [ 'conv5_1','conv5_2' ]
 ops = [ getattr( vgg, x ) for x in layers ]
 
 with tf.variable_scope('transformer_network') as trans_scope:
-    vgg_conv5_1 = ops[0]
+    vgg_conv5_1 = tf.stop_gradient(ops[0])
     W_conv1_l = weight_variable([3, 3, 512, 32])
     b_conv1_l = bias_variable([32])
     h_conv1_l = tf.nn.relu( tf.nn.conv2d( vgg_conv5_1, W_conv1_l, strides=[1, 1, 1, 1], padding='VALID' ) + b_conv1_l )
@@ -70,48 +70,58 @@ with tf.variable_scope('classifyer_network') as class_scope:
     b_conv2 = bias_variable([64])
     h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
     h_pool2 = max_pool_2x2(h_conv2)
-
-    W_fc1 = weight_variable([6*6*64, 1024])
-    b_fc1 = bias_variable([1024])
     h_pool2_flat = tf.reshape(h_pool2, [-1, 6*6*64])
-    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 
-    h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+    W_conv3 = weight_variable([3, 3, 64, 64])
+    b_conv3 = bias_variable([64])
+    h_conv3 = tf.nn.relu(conv2d(h_conv2, W_conv3) + b_conv3)
+    h_pool3 = max_pool_2x2(h_conv3)
+    h_pool3_flat = tf.reshape(h_pool3, [-1, 6*6*64])
 
     with tf.variable_scope("letter"):
+        W_fc1 = weight_variable([6*6*64, 1024])
+        b_fc1 = bias_variable([1024])
+        h_fc1 = tf.nn.relu(tf.matmul(h_pool3_flat, W_fc1) + b_fc1)
+        h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+
         W_fc2 = tf.get_variable( "W", [1024, 36], tf.float32,
                                   tf.random_normal_initializer( stddev=np.sqrt(2 / np.prod(h_fc1_drop.get_shape().as_list()[1:])) ) ) # weight_variable([1024, 36])
         b_fc2 = bias_variable([36])
         let_conv=tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
 
     with tf.variable_scope("shape"):
+        W_fc1 = weight_variable([6*6*64, 1024])
+        b_fc1 = bias_variable([1024])
+        h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+        h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+
         W_fc2 = tf.get_variable( "W", [1024, 13], tf.float32,
                                   tf.random_normal_initializer( stddev=np.sqrt(2 / np.prod(h_fc1_drop.get_shape().as_list()[1:])) ) ) # weight_variable([1024, 36])
         b_fc2 = bias_variable([13])
         sha_conv=tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
 
     with tf.variable_scope("letter_color"):
-        W_fc2 = tf.get_variable( "W", [1024, 10], tf.float32,
-                                  tf.random_normal_initializer( stddev=np.sqrt(2 / np.prod(h_fc1_drop.get_shape().as_list()[1:])) ) ) # weight_variable([1024, 36])
+        W_fc2 = tf.get_variable( "W", [6*6*64, 10], tf.float32,
+                                  tf.random_normal_initializer( stddev=np.sqrt(2 / np.prod(h_pool2_flat.get_shape().as_list()[1:])) ) ) # weight_variable([1024, 36])
         b_fc2 = bias_variable([10])
-        let_col_conv=tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
+        let_col_conv=tf.nn.softmax(tf.matmul(h_pool2_flat, W_fc2) + b_fc2)
 
     with tf.variable_scope("shape_color"):
-        W_fc2 = tf.get_variable( "W", [1024, 10], tf.float32,
-                                  tf.random_normal_initializer( stddev=np.sqrt(2 / np.prod(h_fc1_drop.get_shape().as_list()[1:])) ) ) # weight_variable([1024, 36])
+        W_fc2 = tf.get_variable( "W", [6*6*64, 10], tf.float32,
+                                  tf.random_normal_initializer( stddev=np.sqrt(2 / np.prod(h_pool2_flat.get_shape().as_list()[1:])) ) ) # weight_variable([1024, 36])
         b_fc2 = bias_variable([10])
-        sha_col_conv=tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
+        sha_col_conv=tf.nn.softmax(tf.matmul(h_pool2_flat, W_fc2) + b_fc2)
 
 with tf.name_scope('Cost'):
-    cross_entropies = tf.reduce_mean(-tf.reduce_sum(let_ * tf.log(let_conv), reduction_indices=[1])) + \
-                      tf.reduce_mean(-tf.reduce_sum(sha_ * tf.log(sha_conv), reduction_indices=[1])) + \
-                      tf.reduce_mean(-tf.reduce_sum(let_col_ * tf.log(let_col_conv), reduction_indices=[1])) + \
-                      tf.reduce_mean(-tf.reduce_sum(sha_col_ * tf.log(sha_col_conv), reduction_indices=[1]))
+    cross_entropies = tf.reduce_mean(-tf.reduce_sum(let_ * tf.log(let_conv), axis=[1])) + \
+                      tf.reduce_mean(-tf.reduce_sum(sha_ * tf.log(sha_conv), axis=[1])) + \
+                      .15*tf.reduce_mean(-tf.reduce_sum(let_col_ * tf.log(let_col_conv), axis=[1])) + \
+                      .05*tf.reduce_mean(-tf.reduce_sum(sha_col_ * tf.log(sha_col_conv), axis=[1]))
 with tf.name_scope('Optimizer'):
     class_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=class_scope.name)
-    train_classifyer_step = tf.train.AdamOptimizer(5e-5).minimize(cross_entropies, var_list=class_vars)
+    train_classifyer_step = tf.train.AdamOptimizer(1e-6).minimize(cross_entropies, var_list=class_vars)
     trans_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=trans_scope.name)
-    train_transfomer_step = tf.train.AdamOptimizer(1e-7).minimize(cross_entropies, var_list=trans_vars)
+    train_transfomer_step = tf.train.AdamOptimizer(5e-7).minimize(cross_entropies, var_list=trans_vars)
     train_step = tf.train.AdamOptimizer(1e-8).minimize(cross_entropies)
 with tf.name_scope('Accuracy'):
     let_correct_prediction = tf.equal(tf.argmax(let_conv,1), tf.argmax(let_,1))
@@ -123,25 +133,25 @@ with tf.name_scope('Accuracy'):
     sha_col_correct_prediction = tf.equal(tf.argmax(sha_col_conv,1), tf.argmax(sha_col_,1))
     sha_col_acc = tf.reduce_mean(tf.cast(sha_col_correct_prediction, tf.float32))
 
-acc_summary = tf.scalar_summary( 'letter accuracy', let_acc )
-acc_summary = tf.scalar_summary( 'shape accuracy', sha_acc )
-cost_summary = tf.scalar_summary( 'cost', cross_entropies )
+acc_summary = tf.summary.scalar( 'letter accuracy', let_acc )
+acc_summary = tf.summary.scalar( 'shape accuracy', sha_acc )
+cost_summary = tf.summary.scalar( 'cost', cross_entropies )
 
-merged_summary_op = tf.merge_all_summaries()
-summary_writer = tf.train.SummaryWriter("./tf_logs",graph=sess.graph)
-sess.run(tf.initialize_all_variables())
+merged_summary_op = tf.summary.merge_all()
+summary_writer = tf.summary.FileWriter("./tf_logs",graph=sess.graph)
+sess.run(tf.global_variables_initializer())
 vgg.load_weights( 'vgg16_weights.npz', sess )
 
-bs = 150
-class_steps = 100
-max_steps = 15000
+bs = 25
+class_steps = 3000
+max_steps = 3001
 m = 4.0/(class_steps - max_steps)
 b = 0.75 - m*class_steps
 print("step, shape_color, letter_color, shape, letter")
 for i in range(max_steps):
     if i < class_steps:
         batch = batch_utils.next_batch(bs, 1, False, False)
-        randness = np.array([-.4 + 0.015*np.random.randn(bs),0.015*np.random.randn(bs),0.03*np.random.randn(bs),0.015*np.random.randn(bs),-.36 + 0.015*np.random.randn(bs),0.03*np.random.randn(bs)]).transpose()
+        randness = np.array([-.4 + 0.005*np.random.randn(bs),0.005*np.random.randn(bs),0.03*np.random.randn(bs),0.005*np.random.randn(bs),-.4 + 0.005*np.random.randn(bs),0.03*np.random.randn(bs)]).transpose()
     else:
         batch = batch_utils.next_batch(bs, i*m + b, True, True)
         randness = np.zeros([bs,6])
@@ -151,12 +161,12 @@ for i in range(max_steps):
         print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
         summary_writer.add_summary(summary_str,i)
 
-    if i%10 == 0 or (i > class_steps and i < class_steps + 30):
+    if i%100 == 0 or (i > class_steps and i < class_steps + 30):
         xt, = sess.run([x_trans],feed_dict={xs: batch[0], keep_prob: 1.0, trans_randomness: randness})
         for j in range(1):
             imsave('./tf_logs/' + str(i) + '_t'+str(j)+'.png',xt[j])
             im = np.array(batch[0][j])
-            im = im.reshape([143,256,3])
+            im = im.reshape([224,224,3])
             imsave('./tf_logs/' + str(i) + '_b'+str(j)+'.png',im)
 
     if i < class_steps:
