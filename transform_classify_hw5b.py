@@ -152,7 +152,7 @@ for i in range(max_steps):
         summary_writer.add_summary(summary_str,i)
 
     if i%10 == 0 or (i > class_steps and i < class_steps + 30):
-        xt, = sess.run([x_trans],feed_dict={x: batch[0], keep_prob: 1.0, trans_randomness: randness})
+        xt, = sess.run([x_trans],feed_dict={xs: batch[0], keep_prob: 1.0, trans_randomness: randness})
         for j in range(1):
             imsave('./tf_logs/' + str(i) + '_t'+str(j)+'.png',xt[j])
             im = np.array(batch[0][j])
