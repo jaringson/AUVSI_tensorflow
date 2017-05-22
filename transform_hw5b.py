@@ -92,9 +92,9 @@ for i in range(4000):
     batch = batch_utils.next_batch(bs, max(.2, 0.9 - i/2000.), i > 1000, i > 300)
 
     if i%10 == 0:
-        summary_str,p_acc, s_acc, xt, out = sess.run([merged_summary_op, pix_accuracy, scale_accuracy, x_trans, y_conv], feed_dict={x:batch[0], y_: batch[5], keep_prob: 1.0})
+        summary_str,p_err, s_err, xt, out = sess.run([merged_summary_op, pix_error, scale_error, x_trans, y_conv], feed_dict={x:batch[0], y_: batch[5], keep_prob: 1.0})
         summary_writer.add_summary(summary_str,i)
-        print("step %d, training pixel error %g, scale error %g"%(i, p_acc, s_acc))
+        print("step %d, training pixel error %g, scale error %g"%(i, p_err, s_err))
 
         for j in range(1):
             imsave('./tf_logs/' + str(i) + '_t'+str(j)+'.png',xt[j])
