@@ -135,11 +135,11 @@ def place_background(from_center, rotate, scale_rand):
         target_r = target.rotate(p_deg, expand=True)
 
     if scale_rand:
-        p_scale = randint(18,24)
+        p_size = randint(18,24)
     else:
-        p_scale = 18
-    target_r = target_r.resize((p_scale,p_scale), Image.ANTIALIAS)
-    p_scale = p_scale / 40.
+        p_size = 18
+    p_scale = 1.0*p_size/b_w
+    target_r = target_r.resize((p_size,p_size), Image.ANTIALIAS)
 
     t_w,t_h = target_r.size
     foregrounds.append(target_r)
@@ -156,7 +156,7 @@ def place_background(from_center, rotate, scale_rand):
 
     #background.show()
     #print p_w, p_h
-    return background, p_deg, p_h, p_w, p_scale, sc, lc, s, l, target
+    return background, p_deg, p_h + t_h/2 - b_h/2, p_w + t_w/2 - b_w/2, p_scale, sc, lc, s, l, target
 
 def next_batch(size, from_center = 0, rotate = True, scale_rand = True):
 	if from_center > 1:
@@ -193,7 +193,7 @@ def next_batch(size, from_center = 0, rotate = True, scale_rand = True):
 		output[2].append(shape)
 		output[3].append(letter_color)
 		output[4].append(shape_color)
-		output[5].append([three, six, p_deg])
+		output[5].append([p_w, p_h, p_scale])
 		output[6].append(target)
 
 	#print output[1]
