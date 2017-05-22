@@ -60,8 +60,8 @@ with tf.variable_scope('transformer_network') as trans_scope:
     y_conv=tf.matmul(h_fc1_drop, W_fc2) + b_fc2
 
 x_est, y_est, scale_out = tf.split(axis=1, num_or_size_splits=3, value=y_conv)
-scale_est = tf.abs(scale_out)
-trans = scale_est*tf.concat([tf.ones_like(x_est),tf.zeros_like(x_est),x_est,tf.zeros_like(x_est),tf.ones_like(x_est),y_est],1)
+scale_est = tf.abs(scale_out)*0.0803/112
+trans = 0.0803*tf.concat([tf.ones_like(x_est), tf.zeros_like(x_est), x_est,  tf.zeros_like(x_est), tf.ones_like(x_est), y_est],1)
 x_trans = transformer(x_image, trans, (24,24))
 
 with tf.name_scope('Cost') as scope:
@@ -71,11 +71,12 @@ with tf.name_scope('Optimizer') as scope:
     trans_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=trans_scope.name)
     train_step = tf.train.AdamOptimizer(1e-3).minimize(loss, var_list=trans_vars)
 with tf.name_scope('Accuracy') as scope:
-    pix_accuracy = tf.reduce_mean(tf.sqrt((x_act - x_est)**2 + (y_act - y_est )**2))
-    scale_accuracy = tf.reduce_mean(tf.abs(scale - scale_est))
+    pix_error = tf.reduce_mean(tf.sqrt((x_act - x_est)**2 + (y_act - y_est )**2))
+    scale_error = tf.reduce_mean(tf.abs(scale - scale_est))
 
 # acc_summary = tf.summary.histogram( 'pix_accuracy', pix_accuracy )
-acc_summary = tf.summary.scalar( 'pix_accuracy', pix_accuracy )
+acc_summary = tf.summary.scalar( 'pix_error', pix_error )
+acc_summary = tf.summary.scalar( 'pix_error', scale_error )
 cost_summary = tf.summary.scalar( 'cost', loss )
 
 merged_summary_op = tf.summary.merge_all()
@@ -88,12 +89,12 @@ saver = tf.train.Saver(var_list=trans_vars)
 
 bs = 45
 for i in range(4000):
-    batch = batch_utils.next_batch(bs, 0.9 - i/2000, i > 1000, i > 300)
+    batch = batch_utils.next_batch(bs, max(.2, 0.9 - i/2000.), i > 1000, i > 300)
 
     if i%10 == 0:
         summary_str,p_acc, s_acc, xt, out = sess.run([merged_summary_op, pix_accuracy, scale_accuracy, x_trans, y_conv], feed_dict={x:batch[0], y_: batch[5], keep_prob: 1.0})
         summary_writer.add_summary(summary_str,i)
-        print("step %d, training pixel accuracy %g, scale accuracy %g"%(i, p_acc, s_acc))
+        print("step %d, training pixel error %g, scale error %g"%(i, p_acc, s_acc))
 
         for j in range(1):
             imsave('./tf_logs/' + str(i) + '_t'+str(j)+'.png',xt[j])
