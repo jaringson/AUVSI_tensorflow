@@ -93,8 +93,7 @@ for i in range(2000):
     if i%10 == 0:
         summary_str,p_acc, s_acc, xt, out = sess.run([merged_summary_op, pix_accuracy, scale_accuracy, x_trans, y_conv], feed_dict={x:batch[0], y_: batch[5], keep_prob: 1.0})
         summary_writer.add_summary(summary_str,i)
-        print("step %d, training pixel accuracy %g, scale accuracy %g"%(i, p_acc[0], s_acc))
-        print batch[5][0], out[0]
+        print("step %d, training pixel accuracy %g, scale accuracy %g"%(i, p_acc, s_acc))
 
         for j in range(1):
             imsave('./tf_logs/' + str(i) + '_t'+str(j)+'.png',xt[j])
