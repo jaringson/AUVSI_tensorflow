@@ -84,10 +84,10 @@ with tf.variable_scope('classifyer_network') as class_scope:
         sha_col_conv=tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
 
 with tf.name_scope('Cost') as scope:
-    cross_entropies = tf.reduce_mean(-tf.reduce_sum(let_ * tf.log(let_conv), axis=[1])) + \
-                      .5 * tf.reduce_mean(-tf.reduce_sum(sha_ * tf.log(sha_conv), axis=[1])) + \
-                      .25 * tf.reduce_mean(-tf.reduce_sum(let_col_ * tf.log(let_col_conv), axis=[1])) + \
-                      .05 * tf.reduce_mean(-tf.reduce_sum(sha_col_ * tf.log(sha_col_conv), axis=[1]))
+    cross_entropies = tf.reduce_mean(-tf.reduce_sum(let_ * tf.log(tf.clip_by_value(let_conv,1e-10,1)), axis=[1])) + \
+                      .5 * tf.reduce_mean(-tf.reduce_sum(sha_ * tf.log(tf.clip_by_value(sha_conv,1e-10,1)), axis=[1])) + \
+                      .25 * tf.reduce_mean(-tf.reduce_sum(let_col_ * tf.log(tf.clip_by_value(let_col_conv,1e-10,1)), axis=[1])) + \
+                      .05 * tf.reduce_mean(-tf.reduce_sum(sha_col_ * tf.log(tf.clip_by_value(sha_col_conv,1e-10,1)), axis=[1]))
 with tf.name_scope('Optimizer') as scope:
     class_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=class_scope.name)
     train_step = tf.train.AdamOptimizer(1e-6).minimize(cross_entropies, var_list=class_vars)
@@ -108,12 +108,13 @@ merged_summary_op = tf.summary.merge_all()
 summary_writer = tf.summary.FileWriter("./tf_logs",graph=sess.graph)
 
 sess.run(tf.global_variables_initializer())
-saver = tf.train.Saver()
-# saver.restore(sess, "../tf_logs/model.ckpt")
+saver = tf.train.Saver(var_list=class_vars)
+# saver.restore(sess, "tf_logs/class_model.ckpt")
+# print("classification model restored.")
 
 bs = 150
 print("step, shape_color, letter_color, shape, letter")
-for i in range(1500):
+for i in range(3000):
     batch = batch_utils.next_target_batch(bs)
     randness = np.array([0.1*np.random.randn(bs),0.1*np.random.randn(bs),0.1*np.random.randn(bs),0.1*np.random.randn(bs),0.1*np.random.randn(bs),0.1*np.random.randn(bs)]).transpose()
 
@@ -125,11 +126,8 @@ for i in range(1500):
         xt, = sess.run([x_trans],feed_dict={x: batch[0], keep_prob: 1.0, trans_randomness: randness})
         for j in range(1):
             imsave('./tf_logs/' + str(i) + '_t'+str(j)+'.png',xt[j])
-            # im = np.array(batch[0][j])
-            # im = im.reshape([224,224,3])
-            # imsave('./tf_logs/' + str(i) + '_b'+str(j)+'.png',im)
 
     train_step.run(feed_dict={x: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5, trans_randomness: randness})
 
-saver.save(sess, "../tf_logs/model.ckpt")
+saver.save(sess, "tf_logs/class_model.ckpt")
 summary_writer.close()
