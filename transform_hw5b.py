@@ -66,7 +66,7 @@ x_trans = transformer(x_image, trans, (24,24))
 
 with tf.name_scope('Cost') as scope:
     x_act, y_act, scale = tf.split(axis=1, num_or_size_splits=3, value=y_)
-    loss = tf.reduce_mean((x_act - x_est)**2 + (y_act - y_est)**2 + 2*(scale - scale_est)**2)
+    loss = tf.reduce_mean((x_act - x_est)**2 + (y_act - y_est)**2 + 200*(scale - scale_est)**2)
 with tf.name_scope('Optimizer') as scope:
     trans_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=trans_scope.name)
     train_step = tf.train.AdamOptimizer(1e-3).minimize(loss, var_list=trans_vars)
@@ -86,9 +86,9 @@ saver = tf.train.Saver(var_list=trans_vars)
 # saver.restore(sess, "tf_logs/trans_model.ckpt")
 # print("classification model restored.")
 
-bs = 25
-for i in range(2000):
-    batch = batch_utils.next_batch(bs, 0.9 - i/200, i > 1000, i > 300)
+bs = 45
+for i in range(4000):
+    batch = batch_utils.next_batch(bs, 0.9 - i/2000, i > 1000, i > 300)
 
     if i%10 == 0:
         summary_str,p_acc, s_acc, xt, out = sess.run([merged_summary_op, pix_accuracy, scale_accuracy, x_trans, y_conv], feed_dict={x:batch[0], y_: batch[5], keep_prob: 1.0})
