@@ -51,7 +51,7 @@ with tf.variable_scope('transformer_network') as trans_scope:
     keep_prob = tf.placeholder(tf.float32)
     h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
-    initial = np.array([0, 0, 0.0803])
+    initial = np.array([0, 0, 112])
     initial = initial.astype('float32')
     initial = initial.flatten()
 
@@ -61,7 +61,7 @@ with tf.variable_scope('transformer_network') as trans_scope:
 
 x_est, y_est, scale_out = tf.split(axis=1, num_or_size_splits=3, value=y_conv)
 scale_est = tf.abs(scale_out)*0.0803/112
-trans = 0.0803*tf.concat([tf.ones_like(x_est), tf.zeros_like(x_est), x_est,  tf.zeros_like(x_est), tf.ones_like(x_est), y_est],1)
+trans = tf.maximum(tf.minimum(tf.concat([scale_est*tf.ones_like(x_est), tf.zeros_like(x_est), x_est/112,  tf.zeros_like(x_est), scale_est*tf.ones_like(x_est), y_est/112], 1), 1.0),-1.0)
 x_trans = transformer(x_image, trans, (24,24))
 
 with tf.name_scope('Cost') as scope:
@@ -75,8 +75,8 @@ with tf.name_scope('Accuracy') as scope:
     scale_error = tf.reduce_mean(tf.abs(scale - scale_est))
 
 # acc_summary = tf.summary.histogram( 'pix_accuracy', pix_accuracy )
-acc_summary = tf.summary.scalar( 'pix_error', pix_error )
-acc_summary = tf.summary.scalar( 'pix_error', scale_error )
+pix_summary = tf.summary.scalar( 'pix_error', pix_error )
+scale_summary = tf.summary.scalar( 'scale_error', scale_error )
 cost_summary = tf.summary.scalar( 'cost', loss )
 
 merged_summary_op = tf.summary.merge_all()
@@ -85,15 +85,16 @@ summary_writer = tf.summary.FileWriter("./tf_logs",graph=sess.graph)
 sess.run(tf.global_variables_initializer())
 saver = tf.train.Saver(var_list=trans_vars)
 # saver.restore(sess, "tf_logs/trans_model.ckpt")
-# print("classification model restored.")
+# print("transformer model restored.")
 
 bs = 45
 for i in range(4000):
-    batch = batch_utils.next_batch(bs, max(.2, 0.9 - i/2000.), i > 1000, i > 300)
+    batch = batch_utils.next_batch(bs, 0, i > 1000, i > 300)
 
     if i%10 == 0:
-        summary_str,p_err, s_err, xt, out = sess.run([merged_summary_op, pix_error, scale_error, x_trans, y_conv], feed_dict={x:batch[0], y_: batch[5], keep_prob: 1.0})
+        summary_str,p_err, s_err, xt, trans_out = sess.run([merged_summary_op, pix_error, scale_error, x_trans, trans], feed_dict={x:batch[0], y_: batch[5], keep_prob: 1.0})
         summary_writer.add_summary(summary_str,i)
+        # print trans_out[0]
         print("step %d, training pixel error %g, scale error %g"%(i, p_err, s_err))
 
         for j in range(1):
