@@ -172,6 +172,7 @@ def next_batch(size, from_center = 0, rotate = True, scale_rand = True):
 	output.append([])
 	output.append([])
 	output.append([])
+	output.append([])
 	for _ in range(size):
 
 		img, p_deg, p_h, p_w, p_scale, shape_color, letter_color, shape, letter, target = place_background(from_center, rotate, scale_rand)
@@ -195,6 +196,7 @@ def next_batch(size, from_center = 0, rotate = True, scale_rand = True):
 		output[4].append(shape_color)
 		output[5].append([p_w, p_h, p_scale])
 		output[6].append(target)
+		output[7].append([p_deg*3.14158/180 - 3.14159])
 
 	#print output[1]
 	return output
