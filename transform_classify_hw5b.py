@@ -14,7 +14,6 @@ sha_ = tf.placeholder(tf.float32, shape=[None, 13])
 let_col_ = tf.placeholder(tf.float32, shape=[None, 10])
 sha_col_ = tf.placeholder(tf.float32, shape=[None, 10])
 keep_prob = tf.placeholder(tf.float32)
-trans_randomness = tf.placeholder(tf.float32, shape=[None, 6])
 
 # initialization functions
 def weight_variable(shape):
@@ -33,32 +32,47 @@ def max_pool_2x2(x):
   return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 x_image = tf.reshape(xs, [-1,224,224,3])
-vgg = vgg16.vgg16( x_image, 'vgg16_weights.npz', sess )
-
-layers = [ 'conv5_1','conv5_2' ]
-ops = [ getattr( vgg, x ) for x in layers ]
+# vgg = vgg16.vgg16( x_image, 'vgg16_weights.npz', sess )
+#
+# layers = [ 'conv5_1','conv5_2' ]
+# ops = [ getattr( vgg, x ) for x in layers ]
 
 with tf.variable_scope('transformer_network') as trans_scope:
-    vgg_conv5_1 = tf.stop_gradient(ops[0])
-    W_conv1_l = weight_variable([3, 3, 512, 32])
-    b_conv1_l = bias_variable([32])
-    h_conv1_l = tf.nn.relu( tf.nn.conv2d( vgg_conv5_1, W_conv1_l, strides=[1, 1, 1, 1], padding='VALID' ) + b_conv1_l )
-    h_conv1_l_flat = tf.reshape(h_conv1_l, [-1, 4608])
+    W_conv1 = weight_variable([5, 5, 3, 32])
+    b_conv1 = bias_variable([32])
+    h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
+    h_pool1 = max_pool_2x2(h_conv1)
 
-    W_fc1_l = weight_variable([4608, 64])
-    b_fc1_l = bias_variable([64])
-    h_fc1_l = tf.nn.relu(tf.matmul(h_conv1_l_flat, W_fc1_l) + b_fc1_l)
+    W_conv2 = weight_variable([5, 5, 32, 32])
+    b_conv2 = bias_variable([32])
+    h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
+    h_pool2 = max_pool_2x2(h_conv2)
 
-    # initial = np.array([[0.1, 0, 0], [0, 0.14, 0]])
-    initial = np.array([[0.5, 0, 0], [0, 0.5, 0]])
+    # W_conv3 = weight_variable([5, 5, 32, 32])
+    # b_conv3 = bias_variable([32])
+    # h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3) + b_conv3)
+    # h_pool3 = max_pool_2x2(h_conv3)
+
+    W_fc1 = weight_variable([56*56*32, 1024])
+    b_fc1 = bias_variable([1024])
+    h_pool2_flat = tf.reshape(h_pool2, [-1, 56*56*32])
+    # h_pool3_flat = tf.reshape(h_pool3, [-1, 128*72*32])
+    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+
+    h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+
+    initial = np.array([0, 0, 112])
     initial = initial.astype('float32')
     initial = initial.flatten()
 
-    W_fc2_l = tf.Variable(tf.truncated_normal([64,6], stddev=1e-8))# tf.zeros([1024, 6]))
-    b_fc2_l = tf.Variable(initial_value=initial)
-    h_fc2_l = tf.matmul(h_fc1_l, W_fc2_l) + b_fc2_l + trans_randomness
+    W_fc2 = tf.Variable(tf.truncated_normal([1024,3], stddev=1e-8))# tf.zeros([1024, 3]) # weight_variable([1024, 3])
+    b_fc2 = tf.Variable(initial_value=initial)
+    y_conv=tf.matmul(h_fc1_drop, W_fc2) + b_fc2
 
-x_trans = transformer(x_image, h_fc2_l, (24,24))
+x_est, y_est, scale_out = tf.split(axis=1, num_or_size_splits=3, value=y_conv)
+scale_est = tf.abs(scale_out)*0.0803/112
+trans = tf.maximum(tf.minimum(tf.concat([scale_est*tf.ones_like(x_est), tf.zeros_like(x_est), x_est/112,  tf.zeros_like(x_est), scale_est*tf.ones_like(x_est), y_est/112], 1), 1.0),-1.0)
+x_trans = transformer(x_image, trans, (24,24))
 
 with tf.variable_scope('classifyer_network') as class_scope:
     W_conv1 = weight_variable([5, 5, 3, 32])
@@ -76,7 +90,7 @@ with tf.variable_scope('classifyer_network') as class_scope:
     h_pool2_flat = tf.reshape(h_pool2, [-1, 6 * 6 * 64])
     h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 
-    keep_prob = tf.placeholder(tf.float32)
+    # keep_prob = tf.placeholder(tf.float32)
     h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
     with tf.variable_scope("letter"):
@@ -131,42 +145,45 @@ cost_summary = tf.summary.scalar( 'cost', cross_entropies )
 merged_summary_op = tf.summary.merge_all()
 summary_writer = tf.summary.FileWriter("./tf_logs",graph=sess.graph)
 sess.run(tf.global_variables_initializer())
-vgg.load_weights( 'vgg16_weights.npz', sess )
-saver = tf.train.Saver(var_list=class_vars)
-saver.restore(sess, "tf_logs/class_model.ckpt")
+# vgg.load_weights( 'vgg16_weights.npz', sess )
+
+c_saver = tf.train.Saver(var_list=class_vars)
+c_saver.restore(sess, "tf_logs/class_model.ckpt")
 print("classification model restored.")
 
+t_saver = tf.train.Saver(var_list=trans_vars)
+t_saver.restore(sess, "tf_logs/trans_model.ckpt")
+print("transformer model restored.")
 
-bs = 25
-class_steps = 30
+
+bs = 50
+class_steps = 300
 max_steps = 3001
 m = 4.0/(class_steps - max_steps)
 b = 0.75 - m*class_steps
 print("step, shape_color, letter_color, shape, letter")
 for i in range(max_steps):
     if i < class_steps:
-        batch = batch_utils.next_batch(bs, 1, False, False)
-        randness = np.array([-.4 + 0.005*np.random.randn(bs),0.005*np.random.randn(bs),0.03*np.random.randn(bs),0.005*np.random.randn(bs),-.4 + 0.005*np.random.randn(bs),0.03*np.random.randn(bs)]).transpose()
+        batch = batch_utils.next_batch(bs, 0, True, True)
     else:
         batch = batch_utils.next_batch(bs, i*m + b, True, True)
-        randness = np.zeros([bs,6])
 
-    if i%10 == 0:
-        summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={xs:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 1.0, trans_randomness: randness})
+    if i%1 == 0:
+        summary_str,l,s,lc,sc = sess.run([merged_summary_op,let_acc, sha_acc,let_col_acc,sha_col_acc],feed_dict={xs:batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 1.0})
         print("%d, %g, %g, %g, %g"%(i, sc,lc,s,l))
         summary_writer.add_summary(summary_str,i)
 
-    if i%100 == 0 or (i > class_steps and i < class_steps + 30):
-        xt, = sess.run([x_trans],feed_dict={xs: batch[0], keep_prob: 1.0, trans_randomness: randness})
+    if i%1 == 0 or (i > class_steps and i < class_steps + 30):
+        xt, = sess.run([x_trans],feed_dict={xs: batch[0], keep_prob: 1.0})
         for j in range(1):
             imsave('./tf_logs/' + str(i) + '_t'+str(j)+'.png',xt[j])
             im = np.array(batch[0][j])
             im = im.reshape([224,224,3])
             imsave('./tf_logs/' + str(i) + '_b'+str(j)+'.png',im)
 
-    if i < class_steps:
-        train_classifyer_step.run(feed_dict={xs: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5, trans_randomness: randness})
-    elif i < 2*class_steps:
-        train_transfomer_step.run(feed_dict={xs: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75, trans_randomness: randness})
-    else:
-        train_step.run(feed_dict={xs: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75, trans_randomness: randness})
+    # if i < class_steps:
+    #     train_classifyer_step.run(feed_dict={xs: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.5})
+    # elif i < 2*class_steps:
+    #     train_transfomer_step.run(feed_dict={xs: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75})
+    # else:
+    #     train_step.run(feed_dict={xs: batch[0], let_: batch[1], sha_: batch[2], let_col_: batch[3], sha_col_: batch[4], keep_prob: 0.75})
